@@ -169,14 +169,15 @@ function repas(){
  $('#g').focus();
  $('#ok').onclick=function(){add({type:'repas',g:+$('#g').value||0,t:readTimeField()})}}
 function pc(){
- var h='<div class="opts" id="pcopt">';
- h+='<button class="opt" data-a="pipi"><span class="e">💧</span>Pipi</button>';
+ var h='<small class="lb">Pipi</small><div class="opts" id="pcpipi"><button class="opt" data-a="pipi"><span class="e">💧</span>Pipi</button></div>';
+ h+='<small class="lb">Caca</small><div class="opts" id="pcopt">';
  for(var q in QS)h+='<button class="opt" data-a="'+q+'"><span class="e">💩</span>'+QS[q]+'</button>';
  h+='</div>'+timeField()+'<div class="opts"><button class="opt go" id="pcok">Enregistrer</button></div>';
  openS('Pipi / caca',h);
- var chosen=null;
- [].forEach.call(document.querySelectorAll('#pcopt .opt'),function(b){b.onclick=function(){chosen=b.dataset.a;[].forEach.call(document.querySelectorAll('#pcopt .opt'),function(x){x.classList.toggle('on',x===b)})}});
- $('#pcok').onclick=function(){if(!chosen)return;var e=chosen==='pipi'?{type:'pipi'}:{type:'caca',q:chosen};e.t=readTimeField();add(e)}}
+ var pipiOn=false,cacaQ=null;
+ var pb=$('#pcpipi .opt');pb.onclick=function(){pipiOn=!pipiOn;pb.classList.toggle('on',pipiOn)};
+ [].forEach.call(document.querySelectorAll('#pcopt .opt'),function(b){b.onclick=function(){cacaQ=(cacaQ===b.dataset.a)?null:b.dataset.a;[].forEach.call(document.querySelectorAll('#pcopt .opt'),function(x){x.classList.toggle('on',x.dataset.a===cacaQ)})}});
+ $('#pcok').onclick=function(){if(!pipiOn&&!cacaQ)return;var t=readTimeField();if(pipiOn)add({type:'pipi',t:t});if(cacaQ)add({type:'caca',q:cacaQ,t:t})}}
 function sieste(){
  var o=open();
  if(o&&!o.end){
