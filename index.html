@@ -62,6 +62,10 @@ h2{font-size:15px;font-weight:800;margin:14px 0 6px;display:flex;align-items:cen
 .go{background:var(--acc);color:var(--accT);border-color:var(--acc);justify-content:center}
 .ghost{background:none;border:0;color:var(--mute);padding:12px;width:100%;font:700 15px Nunito,system-ui,sans-serif;cursor:pointer}
 input[type=number]{width:100%;padding:14px;font:800 24px Nunito,system-ui,sans-serif;border:1.5px solid var(--line);border-radius:14px;background:var(--card);color:var(--ink);margin-bottom:10px}
+.dtrow{display:flex;align-items:center;gap:6px;margin-bottom:10px}
+.dtrow input[type=date]{flex:1.4;min-width:0;padding:10px 6px;font:600 14px Nunito,system-ui,sans-serif;border:1.5px solid var(--line);border-radius:12px;background:var(--card);color:var(--ink);margin-bottom:0}
+.dtrow input.hmnum{flex:1;min-width:0;width:auto;padding:10px 4px;font:800 18px Nunito,system-ui,sans-serif;text-align:center;margin-bottom:0}
+.dtrow .hmsep{color:var(--mute);font-weight:800}
 input[type=text],textarea{width:100%;padding:12px;font:600 15px Nunito,system-ui,sans-serif;border:1.5px solid var(--line);border-radius:14px;background:var(--card);color:var(--ink);margin-bottom:4px;resize:vertical}
 textarea{margin-bottom:10px}
 .ln{display:flex;justify-content:space-between;gap:8px;align-items:center}
@@ -134,14 +138,17 @@ function open(){return last(function(e){return e.type==='sieste'})}
 function lastMealBefore(ts){var m=null;S.ev.forEach(function(x){if(x.type==='repas'&&x.t<=ts&&(!m||x.t>m.t))m=x});return m}
 function since(){var m=lastMealBefore(Date.now());return m?Math.round((Date.now()-m.t)/6e4):null}
 function add(e){if(!e.t)e.t=Date.now();e.id=e.t+'-'+Math.random().toString(36).slice(2,6);if(e.type==='pipi'||e.type==='caca')recomputeDelay(e);S.ev.push(e);save();closeS();render()}
-function timeField(id){return '<small class="lb">Heure</small><input type="datetime-local" id="'+(id||'evt')+'" value="'+toLocalInput(Date.now())+'">'}
-function readTimeField(id){var v=$('#'+(id||'evt')).value,t=new Date(v).getTime();return isNaN(t)?Date.now():t}
+function dtFields(id,ts){var d=new Date(ts),p=function(n){return String(n).padStart(2,'0')};
+ return '<div class="dtrow"><input type="date" id="'+id+'d" value="'+d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate())+'"><input type="number" id="'+id+'h" inputmode="numeric" pattern="[0-9]*" min="0" max="23" class="hmnum" value="'+p(d.getHours())+'"><span class="hmsep">h</span><input type="number" id="'+id+'m" inputmode="numeric" pattern="[0-9]*" min="0" max="59" class="hmnum" value="'+p(d.getMinutes())+'"></div>'}
+function readDt(id){var dv=$('#'+id+'d').value;if(!dv)return Date.now();var p=dv.split('-'),hh=+$('#'+id+'h').value||0,mm=+$('#'+id+'m').value||0;
+ var t=new Date(+p[0],+p[1]-1,+p[2],hh,mm,0,0).getTime();return isNaN(t)?Date.now():t}
+function timeField(id){return '<small class="lb">Heure</small>'+dtFields(id||'evt',Date.now())}
+function readTimeField(id){return readDt(id||'evt')}
 function del(id){S.ev=S.ev.filter(function(e){return e.id!==id});save();render()}
-function toLocalInput(t){var d=new Date(t),p=function(n){return String(n).padStart(2,'0')};return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate())+'T'+p(d.getHours())+':'+p(d.getMinutes())}
 function recomputeDelay(e){if(e.type!=='pipi'&&e.type!=='caca')return;var m=lastMealBefore(e.t);if(m)e.d=Math.round((e.t-m.t)/6e4);else delete e.d}
 function editEv(id){var e=S.ev.find(function(x){return x.id===id});if(!e)return;var l=lab(e);
- var h='<small class="lb">Heure</small><input type="datetime-local" id="et" value="'+toLocalInput(e.t)+'">';
- if(e.type==='sieste'&&e.end)h+='<small class="lb">Fin</small><input type="datetime-local" id="ete" value="'+toLocalInput(e.end)+'">';
+ var h='<small class="lb">Heure</small>'+dtFields('et',e.t);
+ if(e.type==='sieste'&&e.end)h+='<small class="lb">Fin</small>'+dtFields('ete',e.end);
  if(e.type==='act'){
   h+='<small class="lb">Durée en minutes</small><input type="number" id="edm" inputmode="numeric" min="0" value="'+(e.min||'')+'" placeholder="facultatif">';
   h+='<small class="lb">État après</small><div class="opts" id="edaf">';
@@ -151,7 +158,7 @@ function editEv(id){var e=S.ev.find(function(x){return x.id===id});if(!e)return;
  openS(l[0]+' '+l[1],h);
  var chosenAfter=e.after;
  if(e.type==='act'){[].forEach.call(document.querySelectorAll('#edaf .opt'),function(b){b.onclick=function(){chosenAfter=b.dataset.a;[].forEach.call(document.querySelectorAll('#edaf .opt'),function(x){x.classList.toggle('on',x===b)})}})}
- $('#esave').onclick=function(){var nt=new Date($('#et').value).getTime();if(!isNaN(nt))e.t=nt;if($('#ete')){var ne=new Date($('#ete').value).getTime();if(!isNaN(ne))e.end=ne}
+ $('#esave').onclick=function(){e.t=readDt('et');if($('#eted'))e.end=readDt('ete');
   if(e.type==='act'){var m=+$('#edm').value;e.min=m>0?Math.round(m):null;if(chosenAfter)e.after=chosenAfter}
   recomputeDelay(e);S.ev.forEach(recomputeDelay);save();closeS();render()}}
 function openS(t,h){$('#st').textContent=t;$('#sb').innerHTML=h;$('#sh').classList.add('open')}
