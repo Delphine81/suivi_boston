@@ -156,13 +156,14 @@ function editEv(id){var e=S.ev.find(function(x){return x.id===id});if(!e)return;
 function openS(t,h){$('#st').textContent=t;$('#sb').innerHTML=h;$('#sh').classList.add('open')}
 function closeS(){$('#sh').classList.remove('open')}
 $('#sx').onclick=closeS;
-function dl(e){return e.d!=null?' · '+e.d+' min après le repas':''}
+function hmFmt(m){if(m==null)return '';m=Math.round(m);if(m<60)return m+' min';var h=Math.floor(m/60),mm=m%60;return h+'h'+(mm?('0'+mm).slice(-2):'')}
+function dl(e){return e.d!=null?' · '+hmFmt(e.d)+' après le repas':''}
 function lab(e){
  if(e.type==='repas')return ['🍽️','Repas · '+e.g+' g'];
  if(e.type==='pipi')return ['💧','Pipi'+dl(e)];
  if(e.type==='caca')return ['💩',QS[e.q]+dl(e)];
- if(e.type==='sieste'){var d=e.end?' · '+Math.max(1,Math.round((e.end-e.t)/6e4))+' min':' en cours';return ['😴','Sieste'+d]}
- var k=KINDS[e.kind];return [k[0],k[1]+(e.also?' + '+e.also.map(function(q){return KINDS[q][1]}).join(' + '):'')+(e.min?' · '+e.min+' min':'')+(e.after?' · '+AFTER[e.after][1]:'')]}
+ if(e.type==='sieste'){var d=e.end?' · '+hmFmt(Math.max(1,Math.round((e.end-e.t)/6e4))):' en cours';return ['😴','Sieste'+d]}
+ var k=KINDS[e.kind];return [k[0],k[1]+(e.also?' + '+e.also.map(function(q){return KINDS[q][1]}).join(' + '):'')+(e.min?' · '+hmFmt(e.min):'')+(e.after?' · '+AFTER[e.after][1]:'')]}
 function repas(){
  var l=last(function(e){return e.type==='repas'});
  openS('Repas','<input type="number" id="g" inputmode="numeric" min="0" placeholder="'+(l?'dernière fois : '+l.g+' g':'grammes')+'" autofocus>'+timeField()+'<div class="opts"><button class="opt go" id="ok">Enregistrer (grammes)</button></div>');
@@ -228,7 +229,7 @@ function editTarget(k){var t=getTarget(k);
 function planToday(){var t=sod(Date.now()),rows='',done=0,total=0;
  for(var k in KINDS){var tg=getTarget(k),c=S.ev.filter(function(e){return has(e,k)&&sod(e.t)===t}),n=c.length,mn=c.reduce(function(s,e){return s+(e.min||0)},0),ok=n>=tg.n&&(!tg.min||mn>=tg.min);
   total++;if(ok)done++;
-  rows+='<div class="ln plan'+(ok?' done':'')+'"><span>'+KINDS[k][0]+' '+KINDS[k][1]+'</span><span>'+n+'/'+tg.n+(tg.min?' · '+mn+'/'+tg.min+' min':'')+(ok?' ✓':'')+'</span></div>'}
+  rows+='<div class="ln plan'+(ok?' done':'')+'"><span>'+KINDS[k][0]+' '+KINDS[k][1]+'</span><span>'+n+'/'+tg.n+(tg.min?' · '+hmFmt(mn)+'/'+hmFmt(tg.min):'')+(ok?' ✓':'')+'</span></div>'}
  var h='<h2>Plan du jour<span class="hdrbtns"><span class="gear" onclick="togglePlan()">'+(S.planOpen?'▲':'▼')+' '+done+'/'+total+' atteints</span><span class="gear" onclick="allTargets()">⚙️</span></span></h2>';
  if(S.planOpen)h+='<div class="ap">'+rows+'</div>';
  return h}
@@ -290,7 +291,7 @@ function week(){
   var nd3=days.filter(function(d){return a3.some(function(e){return on(e,d)})}).length,tot3=a3.reduce(function(s,e){return s+e.min},0);
   DT.push({e:KINDS[k3][0],n:KINDS[k3][1],avg:Math.round(tot3/nd3),nd:nd3})}
  if(DT.length){h+='<h2>Durée moyenne par jour</h2><div class="ap">';
-  DT.forEach(function(r){h+='<div class="ln"><span>'+r.e+' '+r.n+'</span><span>'+r.avg+' min</span></div>'});
+  DT.forEach(function(r){h+='<div class="ln"><span>'+r.e+' '+r.n+'</span><span>'+hmFmt(r.avg)+'</span></div>'});
   h+='<small>Moyenne sur les jours où la durée a été renseignée</small></div>'}
  var sl=ev.filter(function(e){return e.type==='sieste'&&e.end}),tot=sl.reduce(function(s,e){return s+(e.end-e.t)},0)/6e4,nsl=days.filter(function(d){return sl.some(function(e){return on(e,d)})}).length,avg=nsl?Math.round(tot/nsl):0;
  h+='<h2>Repos</h2><div class="ap">'+(nsl?'😴 '+Math.floor(avg/60)+' h '+('0'+avg%60).slice(-2)+' par jour en moyenne<small>siestes de la journée, sur '+nsl+' jour'+(nsl>1?'s':'')+' renseigné'+(nsl>1?'s':'')+'</small>':'Pas encore de sieste notée<small>Les siestes de la journée seront moyennées ici</small>')+'</div>';
@@ -302,7 +303,7 @@ function week(){
  days.forEach(function(d){var c=ev.filter(function(e){return e.type==='caca'&&on(e,d)});
   sr+='<div class="ln"><span>'+wd(d)+'</span><span>'+(c.length?c.map(function(e){return e.q==='normales'?'🟢':e.q==='molles'?'🟠':'🔴'}).join(' '):'–')+'</span></div>'});
  var ranks=transitRanks(),MIN_R=3,MAXR=4,rankLines='',anyRank=false;
- for(var ri=0;ri<Math.min(ranks.length,MAXR);ri++){var arr=ranks[ri]||[];if(arr.length>=MIN_R){anyRank=true;var avg=Math.round(arr.reduce(function(s,v){return s+v},0)/arr.length);rankLines+='<div class="ln"><span>💩 '+ord(ri+1)+' caca après repas</span><span>'+avg+' min en moyenne ('+arr.length+')</span></div>'}}
+ for(var ri=0;ri<Math.min(ranks.length,MAXR);ri++){var arr=ranks[ri]||[];if(arr.length>=MIN_R){anyRank=true;var avg=Math.round(arr.reduce(function(s,v){return s+v},0)/arr.length);rankLines+='<div class="ln"><span>💩 '+ord(ri+1)+' caca après repas</span><span>'+hmFmt(avg)+' en moyenne ('+arr.length+')</span></div>'}}
  if(anyRank){h+='<h2>Repères après le repas</h2><div class="ap">'+rankLines;
   h+='<small>Moyenne par position dans l\'ordre où tu notes les cacas après chaque repas (1er, 2e, 3e…), depuis le début du suivi. Si un caca est oublié, les suivants du même repas remontent d\'un rang.</small></div>'}
  h+='<h2>Selles</h2>'+souci()+'<div class="ap"><small>🟢 normales · 🟠 molles · 🔴 diarrhée</small><div class="tb">'+sr+'</div></div>';
