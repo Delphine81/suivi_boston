@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>Suivi de Boston</title>
 <meta name="apple-mobile-web-app-title" content="Suivi de Boston">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -85,6 +85,9 @@ table{width:100%;border-collapse:collapse;font-size:14px}th,td{text-align:center
 .fchips{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 8px}
 .fchip{border:1.5px solid var(--line);background:var(--card);color:var(--ink);border-radius:999px;padding:5px 10px;font:700 12px Nunito,system-ui,sans-serif;cursor:pointer}
 .fchip.on{background:var(--acc);color:var(--accT);border-color:var(--acc)}
+.fchips-icon{flex-wrap:nowrap;gap:4px}
+.fchips-icon .fchip{flex-shrink:0;padding:5px 7px;font-size:14px;line-height:1}
+.fsep{flex-shrink:0;width:1px;align-self:stretch;background:var(--line);margin:2px 2px}
 small.lb{display:block;margin:10px 0 6px;color:var(--mute);font-size:13px}
 small.lb.ex{margin:-4px 0 12px;font-style:italic}
 .actgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
@@ -121,13 +124,19 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--tan);outline-of
 </div>
 <div class="sh" id="sh"><div class="sc"><h2 id="st"></h2><div id="sb"></div><button class="ghost" id="sx">Annuler</button></div></div>
 <script>
-var K='chiot-v1',S={ev:[],notes:[],cmds:[],planDefault:{},planToday:{},journalOpen:false,journalFilter:'all',planOpen:true,dressFilter:'all'},tab='today';
-try{var r=localStorage.getItem(K);if(r){var p=JSON.parse(r);if(p&&p.ev){S=p;if(!S.notes)S.notes=[];if(!S.cmds)S.cmds=[];if(!S.planDefault)S.planDefault={};if(!S.planToday)S.planToday={};if(S.journalOpen==null)S.journalOpen=false;if(!S.journalFilter)S.journalFilter='all';if(S.planOpen==null)S.planOpen=true;if(!S.dressFilter)S.dressFilter='all'}}}catch(e){}
+document.addEventListener('gesturestart',function(e){e.preventDefault()});
+document.addEventListener('gesturechange',function(e){e.preventDefault()});
+document.addEventListener('touchmove',function(e){if(e.touches&&e.touches.length>1)e.preventDefault()},{passive:false});
+var lastTouchEnd=0;
+document.addEventListener('touchend',function(e){var now=Date.now();if(now-lastTouchEnd<=300)e.preventDefault();lastTouchEnd=now},false);
+var K='chiot-v1',S={ev:[],notes:[],cmds:[],planDefault:{},planToday:{},journalOpen:false,journalFilter:'all',planOpen:true,dressFilter:'all',dressFilterLoc:'all'},tab='today';
+try{var r=localStorage.getItem(K);if(r){var p=JSON.parse(r);if(p&&p.ev){S=p;if(!S.notes)S.notes=[];if(!S.cmds)S.cmds=[];if(!S.planDefault)S.planDefault={};if(!S.planToday)S.planToday={};if(S.journalOpen==null)S.journalOpen=false;if(!S.journalFilter)S.journalFilter='all';if(S.planOpen==null)S.planOpen=true;if(!S.dressFilter)S.dressFilter='all';if(!S.dressFilterLoc)S.dressFilterLoc='all'}}}catch(e){}
 function save(){try{localStorage.setItem(K,JSON.stringify(S))}catch(e){}}
 var KINDS={balade:['🌿','Balade calme','à son rythme, il renifle'],jeu:['🎾',"Jeu d'interaction",'avec vous ou d\'autres chiens'],occup:['🧠','Jeu cérébral','fouille, Kong, recherche'],dressage:['🎓','Dressage','séance courte'],socia:['🐕','Socialisation','rencontres, bruits, lieux nouveaux'],decomp:['👅','Décompression','mâchouiller, lécher, renifler'],affect:['🤗','Lien affectif calme','câlins, présence sans sollicitation'],soins:['🖐️','Soins du corps','pattes, gueule, oreilles, brossage'],solo:['🚪','Habituation à la solitude','seul quelques minutes, sans stress']};
 var AFTER={endormi:['😴','endormi'],calme:['🙂','calme'],agite:['😐','un peu agité'],surexcite:['⚡','surexcité']};
 var QS={normales:'Selles normales',molles:'Selles molles',diarrhee:'Diarrhée'};
 var MODE={seul:['👤','Seul'],duo:['👥','À deux'],groupe:['👨‍👩‍👧','À plusieurs']};
+var LIEU={interieur:['🏠','Intérieur'],exterieur:['🌳','Extérieur']};
 var $=function(s){return document.querySelector(s)};
 function sod(t){var d=new Date(t);d.setHours(0,0,0,0);return +d}
 function hm(t){return new Date(t).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})}
@@ -168,6 +177,7 @@ function hmFmt(m){if(m==null)return '';m=Math.round(m);if(m<60)return m+' min';v
 function dl(e){return e.d!=null?' · '+hmFmt(e.d)+' après le repas':''}
 function lab(e){
  if(e.type==='repas')return ['🍽️','Repas · '+e.g+' g'];
+ if(e.type==='friandise')return ['🦴','Friandise · '+e.g+' g'];
  if(e.type==='pipi')return ['💧','Pipi'+dl(e)];
  if(e.type==='caca')return ['💩',QS[e.q]+dl(e)];
  if(e.type==='sieste'){var d=e.end?' · '+hmFmt(Math.max(1,Math.round((e.end-e.t)/6e4))):' en cours';return ['😴','Sieste'+d]}
@@ -224,7 +234,15 @@ function after(k){
  [].forEach.call(document.querySelectorAll('#afst .opt'),function(b){b.onclick=function(){chosen=(chosen===b.dataset.a)?null:b.dataset.a;[].forEach.call(document.querySelectorAll('#afst .opt'),function(x){x.classList.toggle('on',x.dataset.a===chosen)})}});
  $('#aok').onclick=function(){var e={type:'act',kind:k,t:readTimeField()};if(chosen)e.after=chosen;var m=+$('#dm').value;if(m>0)e.min=Math.round(m);var alEl=document.querySelectorAll('#al .chp.on');var al=[].map.call(alEl,function(c){return c.dataset.k});if(al.length)e.also=al;add(e);if(chosen==='agite'||chosen==='surexcite')setTimeout(function(){suggestCalm(k)},50)}}
 function souci(){var n=S.ev.filter(function(e){return e.type==='caca'&&e.q!=='normales'&&e.t>Date.now()-864e5}).length;return n>=2?'<div class="warn">⚠️ '+n+' selles molles ou liquides ces dernières 24 h</div>':''}
-function totalToday(){var m=S.ev.filter(function(e){return e.type==='repas'&&sod(e.t)===sod(Date.now())});if(!m.length)return '';return '<div class="ap">🍽️ '+m.reduce(function(s,e){return s+e.g},0)+' g en '+m.length+' repas</div>'}
+function friandise(){
+ openS('Friandise / croquette en récompense','<input type="number" id="fg" inputmode="numeric" min="0" placeholder="grammes" autofocus><div class="opts"><button class="opt go" id="fgok">Enregistrer</button></div>');
+ $('#fg').focus();
+ $('#fgok').onclick=function(){var g=+$('#fg').value||0;if(!g)return;add({type:'friandise',g:g})}}
+function totalToday(){var t=sod(Date.now()),m=S.ev.filter(function(e){return e.type==='repas'&&sod(e.t)===t}),f=S.ev.filter(function(e){return e.type==='friandise'&&sod(e.t)===t}),mg=m.reduce(function(s,e){return s+e.g},0),fg=f.reduce(function(s,e){return s+e.g},0);
+ var h='<div class="ap">';
+ h+=(m.length||f.length)?'🍽️ '+(mg+fg)+' g aujourd\'hui'+(f.length?' (dont '+fg+' g de friandises)':''):'<span style="color:var(--mute)">Rien noté côté nourriture aujourd\'hui</span>';
+ h+='<button class="addmore" onclick="friandise()">+ Friandise / croquette en récompense</button></div>';
+ return h}
 function wd(d){return new Date(d).toLocaleDateString('fr-FR',{weekday:'short',day:'numeric'})}
 var DEFAULT_TARGETS={balade:{n:1,min:25},jeu:{n:2,min:null},occup:{n:1,min:null},dressage:{n:3,min:9},socia:{n:1,min:null},decomp:{n:1,min:null},affect:{n:1,min:null},soins:{n:1,min:null},solo:{n:1,min:null}};
 function todayKey(){return new Date().toISOString().slice(0,10)}
@@ -271,7 +289,7 @@ function today(){
   if(!ev.length)h+='<div class="empty">'+(S.journalFilter==='all'?"Rien de noté pour l'instant. Appuie sur un bouton quand il se passe quelque chose.":'Rien dans ce filtre pour aujourd\'hui.')+'</div>';
   ev.forEach(function(e){var l=lab(e);h+='<div class="row ev-row" onclick="editEv(\''+e.id+'\')"><span class="e">'+l[0]+'</span><div class="t">'+l[1]+'<div class="h">'+hm(e.t)+'</div></div><button class="x" aria-label="Supprimer" onclick="event.stopPropagation();del(\''+e.id+'\')">×</button></div>'})}
  return h}
-var JFILTERS=[['all','Tout','📋'],['repas','Repas','🍽️'],['pipi','Pipi','💧'],['caca','Caca','💩'],['sieste','Sieste','😴'],['act','Activités','🎯']];
+var JFILTERS=[['all','Tout','📋'],['repas','Repas','🍽️'],['friandise','Friandises','🦴'],['pipi','Pipi','💧'],['caca','Caca','💩'],['sieste','Sieste','😴'],['act','Activités','🎯']];
 function matchesFilter(e,f){if(f==='all')return true;if(f==='act')return e.type==='act';return e.type===f}
 function toggleJournal(){S.journalOpen=!S.journalOpen;save();render()}
 function setJournalFilter(f){S.journalFilter=f;save();render()}
@@ -347,10 +365,12 @@ function addCmd(){
  $('#cok').onclick=function(){var n=$('#cn').value.trim();if(!n)return;S.cmds.push({id:Date.now()+'-'+Math.random().toString(36).slice(2,6),name:n,steps:[]});save();closeS();render()}}
 function modeChips(sel,id){var h='<small class="lb">Seul ou accompagné (facultatif)</small><div class="opts" id="'+id+'">';for(var m in MODE)h+='<button class="opt'+(sel===m?' on':'')+'" data-m="'+m+'"><span class="e">'+MODE[m][0]+'</span>'+MODE[m][1]+'</button>';return h+'</div>'}
 function wireModeChips(id,getSel,setSel){[].forEach.call(document.querySelectorAll('#'+id+' .opt'),function(b){b.onclick=function(){var cur=getSel();var nv=(cur===b.dataset.m)?null:b.dataset.m;setSel(nv);[].forEach.call(document.querySelectorAll('#'+id+' .opt'),function(x){x.classList.toggle('on',x.dataset.m===nv)})}})}
+function locChips(sel,id){var h='<small class="lb">Intérieur ou extérieur (facultatif)</small><div class="opts" id="'+id+'">';for(var l in LIEU)h+='<button class="opt'+(sel===l?' on':'')+'" data-l="'+l+'"><span class="e">'+LIEU[l][0]+'</span>'+LIEU[l][1]+'</button>';return h+'</div>'}
+function wireLocChips(id,getSel,setSel){[].forEach.call(document.querySelectorAll('#'+id+' .opt'),function(b){b.onclick=function(){var cur=getSel();var nv=(cur===b.dataset.l)?null:b.dataset.l;setSel(nv);[].forEach.call(document.querySelectorAll('#'+id+' .opt'),function(x){x.classList.toggle('on',x.dataset.l===nv)})}})}
 function addStep(cid){
- openS('Nouvelle étape','<small class="lb">Ce qu\'il doit réussir à cette étape (facultatif)</small><textarea id="sx" placeholder="Ex. Avec friandise devant son nez" rows="3"></textarea>'+modeChips(null,'smode')+'<div class="opts"><button class="opt go" id="sok">Ajouter</button></div>');
- var mode=null;wireModeChips('smode',function(){return mode},function(v){mode=v});
- $('#sok').onclick=function(){var t=$('#sx').value.trim();var c=S.cmds.filter(function(c){return c.id===cid})[0];c.steps.push({id:Date.now()+'-'+Math.random().toString(36).slice(2,6),text:t,mode:mode,done:false});save();closeS();render()}}
+ openS('Nouvelle étape','<small class="lb">Ce qu\'il doit réussir à cette étape (facultatif)</small><textarea id="sx" placeholder="Ex. Avec friandise devant son nez" rows="3"></textarea>'+modeChips(null,'smode')+locChips(null,'sloc')+'<div class="opts"><button class="opt go" id="sok">Ajouter</button></div>');
+ var mode=null,loc=null;wireModeChips('smode',function(){return mode},function(v){mode=v});wireLocChips('sloc',function(){return loc},function(v){loc=v});
+ $('#sok').onclick=function(){var t=$('#sx').value.trim();var c=S.cmds.filter(function(c){return c.id===cid})[0];c.steps.push({id:Date.now()+'-'+Math.random().toString(36).slice(2,6),text:t,mode:mode,loc:loc,done:false});save();closeS();render()}}
 function toggleStep(cid,sid){var c=S.cmds.filter(function(c){return c.id===cid})[0],s=c.steps.filter(function(s){return s.id===sid})[0];s.done=!s.done;save();render()}
 function delCmd(cid){S.cmds=S.cmds.filter(function(c){return c.id!==cid});save();render()}
 function delStep(cid,sid,ev){ev.stopPropagation();var c=S.cmds.filter(function(c){return c.id===cid})[0];c.steps=c.steps.filter(function(s){return s.id!==sid});save();render()}
@@ -360,26 +380,34 @@ function editCmdName(cid){var c=S.cmds.find(function(x){return x.id===cid});if(!
  openS('Renommer l\'ordre','<small class="lb">Nom</small><input type="text" id="cn2" value="'+c.name.replace(/"/g,'&quot;')+'"><div class="opts"><button class="opt go" id="cnok">Enregistrer</button></div>');
  $('#cnok').onclick=function(){var n=$('#cn2').value.trim();if(!n)return;c.name=n;save();closeS();render()}}
 function editStep(cid,sid,evt){if(evt)evt.stopPropagation();var c=S.cmds.find(function(x){return x.id===cid});if(!c)return;var s=c.steps.find(function(x){return x.id===sid});if(!s)return;
- openS('Modifier l\'étape','<small class="lb">Ce qu\'il doit réussir à cette étape (facultatif)</small><textarea id="sx2" rows="4">'+(s.text||'').replace(/</g,'&lt;')+'</textarea>'+modeChips(s.mode,'smode2')+'<div class="opts"><button class="opt go" id="sxok">Enregistrer</button></div>');
- var mode=s.mode||null;wireModeChips('smode2',function(){return mode},function(v){mode=v});
- $('#sxok').onclick=function(){s.text=$('#sx2').value.trim();s.mode=mode;save();closeS();render()}}
+ openS('Modifier l\'étape','<small class="lb">Ce qu\'il doit réussir à cette étape (facultatif)</small><textarea id="sx2" rows="4">'+(s.text||'').replace(/</g,'&lt;')+'</textarea>'+modeChips(s.mode,'smode2')+locChips(s.loc,'sloc2')+'<div class="opts"><button class="opt go" id="sxok">Enregistrer</button></div>');
+ var mode=s.mode||null,loc=s.loc||null;wireModeChips('smode2',function(){return mode},function(v){mode=v});wireLocChips('sloc2',function(){return loc},function(v){loc=v});
+ $('#sxok').onclick=function(){s.text=$('#sx2').value.trim();s.mode=mode;s.loc=loc;save();closeS();render()}}
 function setDressFilter(f){S.dressFilter=f;save();render()}
+function setDressFilterLoc(f){S.dressFilterLoc=f;save();render()}
+function resetDressFilters(){S.dressFilter='all';S.dressFilterLoc='all';save();render()}
+function toggleCmd(cid){var c=S.cmds.find(function(x){return x.id===cid});if(!c)return;c.open=(c.open===false);save();render()}
 function dressageView(){
  var h='<button class="opt go" style="width:100%;margin-bottom:16px" onclick="addCmd()">+ Nouvel ordre</button>';
  if(!S.cmds.length)return h+'<div class="empty">Ajoute les ordres que tu veux lui apprendre (assis, couché, rappel…) et découpe-les en étapes à valider une à une. Travaille un seul ordre par séance tant qu\'il n\'est pas fixé.</div>';
- h+='<div class="fchips"><button class="fchip'+(S.dressFilter==='all'?' on':'')+'" onclick="setDressFilter(\'all\')">📋 Tout</button>';
- for(var m in MODE)h+='<button class="fchip'+(S.dressFilter===m?' on':'')+'" onclick="setDressFilter(\''+m+'\')">'+MODE[m][0]+' '+MODE[m][1]+'</button>';
+ var allOn=S.dressFilter==='all'&&S.dressFilterLoc==='all';
+ h+='<div class="fchips fchips-icon"><button class="fchip'+(allOn?' on':'')+'" onclick="resetDressFilters()" title="Tout">📋</button>';
+ for(var m in MODE)h+='<button class="fchip'+(S.dressFilter===m?' on':'')+'" onclick="setDressFilter(\''+m+'\')" title="'+MODE[m][1]+'">'+MODE[m][0]+'</button>';
+ h+='<span class="fsep"></span>';
+ for(var lc in LIEU)h+='<button class="fchip'+(S.dressFilterLoc===lc?' on':'')+'" onclick="setDressFilterLoc(\''+lc+'\')" title="'+LIEU[lc][1]+'">'+LIEU[lc][0]+'</button>';
  h+='</div>';
  S.cmds.forEach(function(c){
-  var done=c.steps.filter(function(s){return s.done}).length,tot=c.steps.length;
-  var steps=S.dressFilter==='all'?c.steps:c.steps.filter(function(s){return s.mode===S.dressFilter});
-  if(S.dressFilter!=='all'&&!steps.length)return;
-  h+='<div class="ap"><div class="ln"><b class="editable" onclick="editCmdName(\''+c.id+'\')">'+c.name+'</b><button class="x" onclick="delCmd(\''+c.id+'\')">×</button></div>';
+  var done=c.steps.filter(function(s){return s.done}).length,tot=c.steps.length,open=c.open!==false;
+  var steps=c.steps.filter(function(s){return(S.dressFilter==='all'||s.mode===S.dressFilter)&&(S.dressFilterLoc==='all'||s.loc===S.dressFilterLoc)});
+  if(!allOn&&!steps.length)return;
+  h+='<div class="ap"><div class="ln"><b class="editable" onclick="editCmdName(\''+c.id+'\')">'+c.name+'</b><span class="exp" onclick="toggleCmd(\''+c.id+'\')">'+(open?'▲':'▼')+'</span><button class="x" onclick="delCmd(\''+c.id+'\')">×</button></div>';
   h+='<small>'+(tot?done+'/'+tot+' étapes validées'+(done===tot?' · maîtrisé ✅':''):'aucune étape pour l\'instant')+'</small>';
-  steps.forEach(function(s){var idx=c.steps.indexOf(s),exp=!!expSteps[s.id];
-   h+='<div class="step'+(s.done?' done':'')+'" onclick="toggleStep(\''+c.id+'\',\''+s.id+'\')"><span class="ck">'+(s.done?'✓':'')+'</span><span class="t">Étape '+(idx+1)+(s.mode?' '+MODE[s.mode][0]:'')+'</span><span class="exp" onclick="toggleStepDetail(\''+s.id+'\',event)">'+(exp?'▲':'▼')+'</span><span class="exp" onclick="editStep(\''+c.id+'\',\''+s.id+'\',event)">✎</span><button class="x" onclick="delStep(\''+c.id+'\',\''+s.id+'\',event)">×</button></div>';
-   if(exp)h+='<div class="stepdetail">'+(s.text?s.text.replace(/</g,'&lt;').replace(/\n/g,'<br>'):'<i>Pas de détail noté</i>')+'</div>'});
-  h+='<button class="addstep" onclick="addStep(\''+c.id+'\')">+ étape</button></div>'});
+  if(open){
+   steps.forEach(function(s){var idx=c.steps.indexOf(s),exp=!!expSteps[s.id];
+    h+='<div class="step'+(s.done?' done':'')+'" onclick="toggleStep(\''+c.id+'\',\''+s.id+'\')"><span class="ck">'+(s.done?'✓':'')+'</span><span class="t">Étape '+(idx+1)+(s.mode?' '+MODE[s.mode][0]:'')+(s.loc?' '+LIEU[s.loc][0]:'')+'</span><span class="exp" onclick="toggleStepDetail(\''+s.id+'\',event)">'+(exp?'▲':'▼')+'</span><span class="exp" onclick="editStep(\''+c.id+'\',\''+s.id+'\',event)">✎</span><button class="x" onclick="delStep(\''+c.id+'\',\''+s.id+'\',event)">×</button></div>';
+    if(exp)h+='<div class="stepdetail">'+(s.text?s.text.replace(/</g,'&lt;').replace(/\n/g,'<br>'):'<i>Pas de détail noté</i>')+'</div>'});
+   h+='<button class="addstep" onclick="addStep(\''+c.id+'\')">+ étape</button>'}
+  h+='</div>'});
  return h}
 function render(){
  [].forEach.call(document.querySelectorAll('.tab'),function(b){b.classList.toggle('on',b.dataset.tab===tab)});
